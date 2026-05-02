@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LED Matrix Animator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#040404;--surface:#0A0A0A;--surface2:#0F0F0F;--border:#1A1A1A;
+  --accent:#FF0033;--accent2:#CC0022;--accent-dim:#3D000C;
+  --amber:#FFB800;--green:#00FF41;--cyan:#00FFFF;
+  --text:#AAAAAA;--text-dim:#444;--text-bright:#DDDDDD;
+  --font-mono:'Share Tech Mono','Courier New',monospace;
+  --font-display:'VT323',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:12px;overflow:hidden}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0) 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 3px);pointer-events:none;z-index:9999}
+
+#app{display:grid;grid-template-rows:44px 1fr 26px;grid-template-columns:260px 1fr 220px;height:100vh}
+
+/* HEADER */
+#hdr{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--accent-dim);flex-shrink:0}
+.app-title{font-family:var(--font-display);font-size:26px;color:var(--accent);letter-spacing:4px;text-shadow:0 0 12px rgba(255,0,51,.4)}
+.app-sub{font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-top:-2px}
+.badges{display:flex;gap:6px;align-items:center}
+.badge{padding:2px 7px;font-size:10px;letter-spacing:1px;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono)}
+.badge-r{border-color:var(--accent-dim);color:var(--accent)}
+
+/* PANELS */
+#ctrl{grid-area:2/1/3/2;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+#prev{grid-area:2/2/3/3;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;background:var(--bg);overflow:auto}
+#expanel{grid-area:2/3/3/4;background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+#sbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--bg);border-top:1px solid var(--accent-dim);font-size:10px;color:var(--text-dim);letter-spacing:1px}
+
+/* SCROLLBARS */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* SECTION */
+.sec{padding:12px 14px;border-bottom:1px solid var(--border)}
+.sec-title{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+
+/* FORM */
+.fg{margin-bottom:10px}
+.lbl{display:block;font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-bottom:3px}
+input[type=text],input[type=number],select,textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text-bright);font-family:var(--font-mono);font-size:12px;padding:5px 7px;outline:none;transition:border-color .15s;-webkit-appearance:none}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--accent)}
+select option{background:var(--surface2)}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:2px;background:var(--border);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;background:var(--accent);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:11px;height:11px;background:var(--accent);border:none;cursor:pointer}
+.rrow{display:flex;align-items:center;gap:7px}
+.rval{font-size:11px;color:var(--accent);min-width:34px;text-align:right;font-family:var(--font-mono)}
+input[type=color]{width:100%;height:28px;padding:2px;border:1px solid var(--border);background:var(--bg);cursor:pointer}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 12px;font-family:var(--font-mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text);transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-p{border-color:var(--accent);color:var(--accent);background:rgba(255,0,51,.04)}
+.btn-p:hover{background:rgba(255,0,51,.12);box-shadow:0 0 8px rgba(255,0,51,.25)}
+.btn-blk{width:100%}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:10px}
+.tab{padding:4px 8px;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;color:var(--text-dim);border-bottom:2px solid transparent;transition:all .1s}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* LAYERS */
+.layer-list{border:1px solid var(--border)}
+.layer-item{display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;user-select:none}
+.layer-item:last-child{border-bottom:none}
+.layer-item:hover{background:var(--surface2)}
+.layer-item.on{background:rgba(255,0,51,.07);border-left:2px solid var(--accent);padding-left:6px}
+.layer-name{font-size:11px;color:var(--text-bright)}
+.layer-type{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-left:5px}
+.lbtn{padding:2px 5px;font-size:10px;cursor:pointer;background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);transition:all .1s}
+.lbtn:hover{border-color:var(--accent);color:var(--accent)}
+.dot{width:8px;height:8px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
+
+/* COLOR GRID */
+.cgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-bottom:8px}
+.cswatch{width:100%;aspect-ratio:1;cursor:pointer;border:2px solid transparent;transition:border-color .1s}
+.cswatch.on{border-color:#fff}
+
+/* PREVIEW */
+#prev-wrap{position:relative;background:#020202;border:1px solid #1a1a1a;box-shadow:0 0 40px rgba(0,0,0,.9),inset 0 0 20px rgba(0,0,0,.5)}
+#prev-wrap::before{content:'';position:absolute;inset:-5px;border:2px solid var(--border);background:var(--surface2);z-index:-1}
+#prev-canvas{display:block}
+.prev-ctrls{display:flex;gap:6px;align-items:center;margin-top:10px;width:100%}
+
+/* PROGRESS */
+.prog-wrap{margin-top:8px;display:none}
+.prog-bar{height:2px;background:var(--border);overflow:hidden}
+.prog-fill{height:100%;background:var(--accent);width:0%;transition:width .05s}
+.prog-lbl{font-size:10px;color:var(--text-dim);margin-bottom:3px}
+
+/* CHECKBOX */
+.cblbl{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:11px;color:var(--text)}
+input[type=checkbox]{-webkit-appearance:none;appearance:none;width:13px;height:13px;border:1px solid var(--border);background:var(--bg);cursor:pointer;position:relative;flex-shrink:0}
+input[type=checkbox]:checked{background:var(--accent-dim);border-color:var(--accent)}
+input[type=checkbox]:checked::after{content:'✓';position:absolute;top:-2px;left:1px;font-size:10px;color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<header id="hdr">
+  <div>
+    <div class="app-title">◈ LED MATRIX ANIMATOR</div>
+    <div class="app-sub">Cyberpunk Animation Studio</div>
+  </div>
+  <div class="badges">
+    <span class="badge badge-r" id="b-fps">15 FPS</span>
+    <span class="badge" id="b-res">96×16</span>
+    <span class="badge" id="b-frames">45 FRAMES</span>
+    <span class="badge" id="b-dur">3.0s</span>
+  </div>
+</header>
+
+<!-- CONTROLS -->
+<aside id="ctrl">
+
+  <div class="sec">
+    <div class="sec-title">Layers</div>
+    <div class="layer-list" id="layer-list"><div style="padding:7px;font-size:10px;color:var(--text-dim)">Add a layer below</div></div>
+    <div class="btn-grid" style="margin-top:7px">
+      <button class="btn" id="add-text">+ Text</button>
+      <button class="btn" id="add-rain">+ Rain</button>
+      <button class="btn" id="add-glitch">+ Glitch</button>
+      <button class="btn" id="add-noise">+ Noise</button>
+    </div>
+  </div>
+
+  <div class="sec" id="props-sec">
+    <div class="sec-title">Properties</div>
+    <div id="props-body"><div style="font-size:10px;color:var(--text-dim)">Select a layer</div></div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Color</div>
+    <div class="cgrid" id="cgrid"></div>
+    <div class="fg">
+      <label class="lbl">Custom</label>
+      <input type="color" id="custom-col" value="#FF0033">
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Display</div>
+    <div class="fg">
+      <label class="lbl">Resolution Preset</label>
+      <select id="res-sel">
+        <option value="96x16" selected>96 × 16 (Standard)</option>
+        <option value="128x32">128 × 32 (Large)</option>
+        <option value="64x8">64 × 8 (Small)</option>
+        <option value="32x8">32 × 8 (Mini)</option>
+        <option value="192x16">192 × 16 (Wide)</option>
+        <option value="16x96">16 × 96 (Portrait)</option>
+        <option value="8x32">8 × 32 (Tall)</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </div>
+    <div class="fg" id="custom-res-row" style="display:none">
+      <label class="lbl">Width × Height (px)</label>
+      <div style="display:grid;grid-template-columns:1fr 16px 1fr;align-items:center;gap:4px">
+        <input type="number" id="res-w" value="96" min="4" max="512" step="1" placeholder="W">
+        <span style="color:var(--text-dim);text-align:center">×</span>
+        <input type="number" id="res-h" value="16" min="4" max="512" step="1" placeholder="H">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="lbl">LED Cell Size</label>
+      <select id="led-sel">
+        <optgroup label="── Dense (tight pitch)">
+          <option value="5:4">Compact</option>
+          <option value="7:6" selected>Normal</option>
+          <option value="10:9">Large</option>
+          <option value="13:12">XL</option>
+        </optgroup>
+        <optgroup label="── Sparse (wide pitch)">
+          <option value="8:3">Sparse S  (P5)</option>
+          <option value="10:4">Sparse M  (P7)</option>
+          <option value="13:4">Sparse L  (P10)</option>
+          <option value="16:5">Sparse XL (P16)</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="lbl">FPS</label>
+      <select id="fps-sel">
+        <option value="10">10 FPS</option>
+        <option value="15" selected>15 FPS</option>
+        <option value="20">20 FPS</option>
+        <option value="25">25 FPS</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="lbl">Duration (seconds)</label>
+      <input type="number" id="dur-inp" value="3" min="1" max="10" step="0.5">
+    </div>
+  </div>
+
+</aside>
+
+<!-- PREVIEW -->
+<main id="prev">
+  <div id="prev-wrap">
+    <canvas id="prev-canvas"></canvas>
+  </div>
+  <div class="prev-ctrls">
+    <button class="btn btn-p" id="playbtn">⏸ PAUSE</button>
+    <button class="btn" id="restartbtn">⟲ RESET</button>
+    <div style="flex:1"></div>
+    <span style="font-size:10px;color:var(--text-dim)">t=<span id="tdisp" style="color:var(--accent);font-family:var(--font-mono)">0.00</span></span>
+  </div>
+</main>
+
+<!-- EXPORT PANEL -->
+<aside id="expanel">
+
+  <div class="sec">
+    <div class="sec-title">Presets</div>
+    <button class="btn btn-p btn-blk" id="pre-random" style="margin-bottom:7px;letter-spacing:3px;font-size:12px">⚄ RANDOMIZE</button>
+    <div class="btn-grid">
+      <button class="btn" id="pre-matrix">◈ Rain</button>
+      <button class="btn" id="pre-scroll">▶ Scroll</button>
+      <button class="btn" id="pre-glitch">▓ Glitch</button>
+      <button class="btn" id="pre-cyber">⚡ Cyber</button>
+      <button class="btn" id="pre-japan">日 Kana</button>
+      <button class="btn" id="pre-amber">◐ Amber</button>
+      <button class="btn" id="pre-ice">❄ Ice</button>
+      <button class="btn" id="pre-redalert">⚠ Alert</button>
+      <button class="btn" id="pre-ghost">◌ Ghost</button>
+      <button class="btn" id="pre-binary">01 Binary</button>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Share</div>
+    <button class="btn btn-blk" id="copy-url-btn">⎘ COPY LINK</button>
+    <div id="share-ok" style="font-size:10px;color:var(--accent);margin-top:5px;display:none">✓ Link copied to clipboard</div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Export GIF</div>
+    <div class="fg">
+      <label class="lbl">Filename</label>
+      <input type="text" id="filename" value="led_animation">
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7;margin-bottom:10px">
+      Frames: <span id="inf-fr" style="color:var(--text)">45</span><br>
+      Size: <span id="inf-sz" style="color:var(--text)">96×16 px</span><br>
+      Est. size: <span id="inf-kb" style="color:var(--text)">~15 KB</span>
+    </div>
+    <button class="btn btn-p btn-blk" id="export-btn">▼ EXPORT GIF</button>
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="prog-lbl" id="prog-lbl">Encoding frames...</div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-title">Info</div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.8">
+      Optimized for cheap LED matrix panels.<br>
+      Keep loops under 3s to stay within device memory limits.<br><br>
+      GIF uses indexed color — limited palette is intentional for LED authenticity.
+    </div>
+  </div>
+
+</aside>
+
+<!-- STATUS BAR -->
+<div id="sbar">
+  <span id="status">Ready</span>
+  <span>LED MATRIX ANIMATOR v1.0</span>
+</div>
+
+</div><!-- /app -->
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════
+//  GIF ENCODER
+// ═══════════════════════════════════════════
+
+function lzwCompress(pixels, minCodeSize) {
+  const clearCode = 1 << minCodeSize;
+  const eofCode = clearCode + 1;
+  let codeSize = minCodeSize + 1;
+  let nextCode = eofCode + 1;
+  const out = [];
+  let bitBuf = 0, bitCount = 0;
+
+  const emit = code => {
+    bitBuf |= code << bitCount;
+    bitCount += codeSize;
+    while (bitCount >= 8) { out.push(bitBuf & 0xFF); bitBuf >>= 8; bitCount -= 8; }
+  };
+
+  const tbl = new Map();
+  const reset = () => {
+    tbl.clear();
+    for (let i = 0; i < clearCode; i++) tbl.set('' + i, i);
+    nextCode = eofCode + 1;
+    codeSize = minCodeSize + 1;
+  };
+
+  reset();
+  emit(clearCode);
+  let buf = '' + pixels[0];
+  for (let i = 1; i < pixels.length; i++) {
+    const k = '' + pixels[i];
+    const bk = buf + ',' + k;
+    if (tbl.has(bk)) { buf = bk; }
+    else {
+      emit(tbl.get(buf));
+      if (nextCode < 4096) {
+        tbl.set(bk, nextCode++);
+        if (nextCode > (1 << codeSize)) codeSize++;
+      } else { emit(clearCode); reset(); }
+      buf = k;
+    }
+  }
+  emit(tbl.get(buf));
+  emit(eofCode);
+  if (bitCount > 0) out.push(bitBuf & 0xFF);
+  return out;
+}
+
+function encodeGIF(frames, w, h, palette, delayCs) {
+  const out = [];
+  const b = n => out.push(n & 0xFF);
+  const wb = n => { b(n); b(n >> 8); };
+  const str = s => { for (let i = 0; i < s.length; i++) b(s.charCodeAt(i)); };
+
+  let palBits = 1;
+  while ((1 << palBits) < palette.length) palBits++;
+  const palSize = 1 << palBits;
+
+  str('GIF89a');
+  wb(w); wb(h);
+  b(0x80 | (palBits - 1)); b(0); b(0);
+
+  for (let i = 0; i < palSize; i++) {
+    const c = i < palette.length ? palette[i] : [0,0,0];
+    b(c[0]); b(c[1]); b(c[2]);
+  }
+
+  // Netscape loop extension
+  b(0x21); b(0xFF); b(11); str('NETSCAPE2.0'); b(3); b(1); wb(0); b(0);
+
+  const mcs = Math.max(2, palBits);
+  for (const px of frames) {
+    b(0x21); b(0xF9); b(4); b(0x00); wb(delayCs); b(0); b(0);
+    b(0x2C); wb(0); wb(0); wb(w); wb(h); b(0);
+    b(mcs);
+    const comp = lzwCompress(px, mcs);
+    let off = 0;
+    while (off < comp.length) {
+      const bl = Math.min(255, comp.length - off);
+      b(bl);
+      for (let i = 0; i < bl; i++) b(comp[off + i]);
+      off += bl;
+    }
+    b(0);
+  }
+  b(0x3B);
+  return new Uint8Array(out);
+}
+
+// ═══════════════════════════════════════════
+//  MATH / UTILITY
+// ═══════════════════════════════════════════
+
+function prand(seed) {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+// ═══════════════════════════════════════════
+//  LED MATRIX BUFFER
+// ═══════════════════════════════════════════
+
+class LEDMatrix {
+  constructor(w, h) {
+    this.w = w; this.h = h;
+    const n = w * h;
+    this.br = new Float32Array(n);  // brightness 0-1
+    this.cr = new Uint8Array(n);    // red
+    this.cg = new Uint8Array(n);    // green
+    this.cb = new Uint8Array(n);    // blue
+  }
+  clear() { this.br.fill(0); this.cr.fill(0); this.cg.fill(0); this.cb.fill(0); }
+  set(x, y, bright, r, g, bv) {
+    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return;
+    const i = y * this.w + x;
+    if (bright > this.br[i]) {
+      this.br[i] = bright; this.cr[i] = r; this.cg[i] = g; this.cb[i] = bv;
+    }
+  }
+  add(x, y, bright, r, g, bv) {
+    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return;
+    const i = y * this.w + x;
+    this.br[i] = Math.min(1, this.br[i] + bright);
+    if (this.cr[i] === 0 && this.cg[i] === 0 && this.cb[i] === 0) {
+      this.cr[i] = r; this.cg[i] = g; this.cb[i] = bv;
+    }
+  }
+}
+
+// Reusable off-screen text canvas
+const _txtCanvas = document.createElement('canvas');
+const _txtCtx = _txtCanvas.getContext('2d');
+
+function drawTextToMatrix(matrix, text, x, y, fontSize, fontFamily, r, g, bv, brightness, vertical = false) {
+  _txtCanvas.width = matrix.w;
+  _txtCanvas.height = matrix.h;
+  _txtCtx.clearRect(0, 0, matrix.w, matrix.h);
+  _txtCtx.fillStyle = '#ffffff';
+  _txtCtx.font = `${fontSize}px "${fontFamily}"`;
+  _txtCtx.textBaseline = 'top';
+  if (vertical) {
+    // Rotate 90° CW so text reads top-to-bottom.
+    // x = left edge of the text column (width = fontSize).
+    // y = top of the first character in the rotated layout.
+    // Transform: translate(x + fontSize, y), rotate(PI/2), fillText(text, 0, 0)
+    // A pixel at local (rx, ry) maps to canvas (x + fontSize - ry, y + rx).
+    // rx goes along the string → increases canvas_y (downward). ✓
+    _txtCtx.save();
+    _txtCtx.translate(Math.round(x + fontSize), Math.round(y));
+    _txtCtx.rotate(Math.PI / 2);
+    _txtCtx.fillText(text, 0, 0);
+    _txtCtx.restore();
+  } else {
+    _txtCtx.fillText(text, Math.round(x), y);
+  }
+  const d = _txtCtx.getImageData(0, 0, matrix.w, matrix.h).data;
+  for (let py = 0; py < matrix.h; py++) {
+    for (let px = 0; px < matrix.w; px++) {
+      const a = d[((py * matrix.w + px) * 4) + 3] / 255;
+      if (a > 0.08) matrix.set(px, py, a * brightness, r, g, bv);
+    }
+  }
+}
+
+function measureTextWidth(text, fontSize, fontFamily) {
+  _txtCtx.font = `${fontSize}px "${fontFamily}"`;
+  return Math.ceil(_txtCtx.measureText(text).width);
+}
+
+// ═══════════════════════════════════════════
+//  ANIMATION LAYERS
+// ═══════════════════════════════════════════
+
+const KANA = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝｦｧｨｩｪｫｬｭｮｯｰ';
+const LATIN = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%&!?';
+const GLITCH_K = 'ｦｧｨｩｪｫｬｭｮｯｰ日本語';
+
+class TextLayer {
+  constructor() {
+    this.type = 'text';
+    this.name = 'Text';
+    this.text = 'CYBERPUNK';
+    this.fontSize = 11;
+    this.fontFamily = 'VT323';
+    this.mode = 'scroll'; // scroll, bounce, pulse, static, typewriter
+    this.orientation = 'horizontal'; // horizontal | vertical
+    this.direction = 'left'; // horizontal: left|right  vertical: up|down
+    this.speed = 1.0;
+    this.yOffset = 2; // perpendicular offset: Y in horizontal mode, X in vertical mode
+    this.color = [255, 0, 51];
+    this.brightness = 1.0;
+    this.glitch = 0.0;
+    this.visible = true;
+    this._tw = -1;
+  }
+  getTextWidth() {
+    if (this._tw < 0) this._tw = measureTextWidth(this.text, this.fontSize, this.fontFamily);
+    return this._tw;
+  }
+  render(matrix, t) {
+    if (!this.visible) return;
+    const [r, g, bv] = this.color;
+    const tw = this.getTextWidth();
+    const vert = this.orientation === 'vertical';
+
+    let txt = this.text;
+    if (this.glitch > 0) {
+      const gseed = Math.floor(t * 60);
+      txt = this.text.split('').map((c, ci) => {
+        if (prand(gseed * 31 + ci * 7) < this.glitch * 0.4) {
+          const pool = GLITCH_K;
+          return pool[Math.floor(prand(gseed * 17 + ci * 13) * pool.length)];
+        }
+        return c;
+      }).join('');
+    }
+
+    if (!vert) {
+      // ── HORIZONTAL: scroll axis = X, perpendicular offset = Y (yOffset)
+      const rev = this.direction === 'right';
+      const intSpeed = Math.max(1, Math.round(this.speed));
+      let x;
+      if (this.mode === 'scroll') {
+        const span = matrix.w + tw;
+        const off = (t * span * intSpeed) % span;
+        x = rev ? -tw + off : matrix.w - off;
+        drawTextToMatrix(matrix, txt, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
+      } else if (this.mode === 'bounce') {
+        const span = Math.max(0, matrix.w - tw);
+        let pos = Math.abs(((t * 2 * intSpeed) % 2) - 1);
+        if (rev) pos = 1 - pos;
+        x = pos * span;
+        drawTextToMatrix(matrix, txt, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
+      } else if (this.mode === 'pulse') {
+        const pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * intSpeed));
+        x = Math.max(0, (matrix.w - tw) / 2);
+        drawTextToMatrix(matrix, txt, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness * pulse);
+      } else if (this.mode === 'static') {
+        x = Math.max(0, Math.round((matrix.w - tw) / 2));
+        drawTextToMatrix(matrix, txt, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
+      } else if (this.mode === 'typewriter') {
+        const nchars = Math.min(Math.ceil(t * txt.length * this.speed), txt.length);
+        const sub = txt.slice(0, nchars);
+        if (rev) {
+          // Cursor starts at right edge, text grows leftward
+          x = Math.max(0, matrix.w - measureTextWidth(sub, this.fontSize, this.fontFamily));
+        } else {
+          x = 0;
+        }
+        drawTextToMatrix(matrix, sub, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
+      }
+    } else {
+      // ── VERTICAL: text is rotated 90° CW, scroll axis = Y, perpendicular offset = X (yOffset)
+      // tw = horizontal text width = vertical extent after rotation.
+      // fontSize = column width after rotation.
+      const rev = this.direction === 'down';
+      const intSpeed = Math.max(1, Math.round(this.speed));
+      const xPos = this.yOffset; // X position of text column's left edge
+      let yPos;
+      if (this.mode === 'scroll') {
+        const span = matrix.h + tw;
+        const off = (t * span * intSpeed) % span;
+        yPos = rev ? -tw + off : matrix.h - off;
+        drawTextToMatrix(matrix, txt, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
+      } else if (this.mode === 'bounce') {
+        const span = Math.max(0, matrix.h - tw);
+        let pos = Math.abs(((t * 2 * intSpeed) % 2) - 1);
+        if (rev) pos = 1 - pos;
+        yPos = pos * span;
+        drawTextToMatrix(matrix, txt, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
+      } else if (this.mode === 'pulse') {
+        const pulse = 0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2 * intSpeed));
+        yPos = Math.max(0, (matrix.h - tw) / 2);
+        drawTextToMatrix(matrix, txt, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness * pulse, true);
+      } else if (this.mode === 'static') {
+        yPos = Math.max(0, Math.round((matrix.h - tw) / 2));
+        drawTextToMatrix(matrix, txt, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
+      } else if (this.mode === 'typewriter') {
+        const nchars = Math.min(Math.ceil(t * txt.length * this.speed), txt.length);
+        const sub = txt.slice(0, nchars);
+        if (rev) {
+          // Cursor starts at bottom, text grows upward
+          const subW = measureTextWidth(sub, this.fontSize, this.fontFamily);
+          yPos = Math.max(0, matrix.h - subW);
+        } else {
+          yPos = 0;
+        }
+        drawTextToMatrix(matrix, sub, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
+      }
+    }
+  }
+}
+
+class RainLayer {
+  constructor() {
+    this.type = 'rain';
+    this.name = 'Matrix Rain';
+    this.color = [0, 255, 65];      // tail color
+    this.headColor = [220, 255, 220]; // leading character color
+    this.speed = 1.0;
+    this.density = 0.7;
+    this.trail = 5;
+    this.charset = 'kana'; // kana, latin, mixed
+    this.visible = true;
+  }
+  getChar(col, row, t) {
+    const seed = col * 1000 + row * 100 + (Math.floor(t * 8 + col * 0.3) % 8);
+    const pool = this.charset === 'kana' ? KANA : this.charset === 'latin' ? LATIN : KANA + LATIN;
+    return pool[Math.floor(prand(seed) * pool.length)];
+  }
+  render(matrix, t) {
+    if (!this.visible) return;
+    const [r, g, bv] = this.color;
+    const [hr, hg, hbv] = this.headColor;
+    const cols = Math.floor(matrix.w / 5);
+    // Density controls both axes: column skip (horizontal) and simultaneous
+    // heads per column (vertical). More heads = shorter gaps between trails.
+    const numHeads = Math.max(1, Math.round(this.density * 3));
+    for (let col = 0; col < cols; col++) {
+      if (prand(col * 997) > this.density) continue;
+      const x = Math.floor(col * (matrix.w / cols)) + 1;
+      const phase = prand(col * 1337);
+      const spd = Math.max(1, Math.round(this.speed * (1 + prand(col * 271))));
+      for (let hi = 0; hi < numHeads; hi++) {
+        const headPhase = (phase + hi / numHeads) % 1.0;
+        const headY = ((t * spd + headPhase) % 1.0) * (matrix.h + this.trail) - this.trail;
+        for (let row = 0; row < matrix.h; row++) {
+          const dist = headY - row;
+          if (dist >= 0 && dist < this.trail) {
+            const bright = 1.0 - dist / this.trail;
+            const isHead = dist < 1.0;
+            matrix.set(x, row, isHead ? bright : bright * 0.9,
+              isHead ? hr : r, isHead ? hg : g, isHead ? hbv : bv);
+            const ch = this.getChar(col, row, t);
+            drawTextToMatrix(matrix, ch, x - 2, row - 1, 6, 'monospace',
+              isHead ? hr : r, isHead ? hg : g, isHead ? hbv : bv, bright);
+          }
+        }
+      }
+    }
+  }
+}
+
+class GlitchLayer {
+  constructor() {
+    this.type = 'glitch';
+    this.name = 'Glitch';
+    this.color = [255, 0, 51];
+    this.intensity = 0.3;
+    this.glitchType = 'noise'; // noise, scanline, block, chromatic
+    this.visible = true;
+  }
+  render(matrix, t) {
+    if (!this.visible) return;
+    const [r, g, bv] = this.color;
+    const seed = Math.floor(t * 24);
+
+    if (this.glitchType === 'noise') {
+      const count = Math.floor(matrix.w * matrix.h * this.intensity * 0.15);
+      for (let i = 0; i < count; i++) {
+        const px = Math.floor(prand(seed * 1000 + i * 7) * matrix.w);
+        const py = Math.floor(prand(seed * 1000 + i * 11) * matrix.h);
+        const br = 0.2 + prand(seed + i * 3) * 0.8;
+        matrix.set(px, py, br, r, g, bv);
+      }
+    } else if (this.glitchType === 'scanline') {
+      const numG = Math.max(1, Math.floor(this.intensity * 4));
+      for (let gi = 0; gi < numG; gi++) {
+        if (prand(seed * 13 + gi) > 0.6) continue;
+        const gy = Math.floor(prand(seed * 17 + gi) * matrix.h);
+        const shift = Math.floor((prand(seed * 3 + gi) - 0.5) * matrix.w * 0.4 * this.intensity);
+        const rowStart = gy * matrix.w;
+        const tempBr = matrix.br.slice(rowStart, rowStart + matrix.w);
+        const tempR = matrix.cr.slice(rowStart, rowStart + matrix.w);
+        const tempG = matrix.cg.slice(rowStart, rowStart + matrix.w);
+        const tempB = matrix.cb.slice(rowStart, rowStart + matrix.w);
+        for (let x = 0; x < matrix.w; x++) {
+          const sx = ((x - shift) % matrix.w + matrix.w) % matrix.w;
+          matrix.br[rowStart + x] = tempBr[sx];
+          matrix.cr[rowStart + x] = tempR[sx];
+          matrix.cg[rowStart + x] = tempG[sx];
+          matrix.cb[rowStart + x] = tempB[sx];
+        }
+      }
+    } else if (this.glitchType === 'block') {
+      const bc = Math.max(1, Math.ceil(this.intensity * 5));
+      for (let bi = 0; bi < bc; bi++) {
+        if (prand(seed * 7 + bi * 3) > this.intensity) continue;
+        const bx = Math.floor(prand(seed * 5 + bi * 7) * matrix.w);
+        const by = Math.floor(prand(seed * 9 + bi * 11) * matrix.h);
+        const bw = Math.floor(3 + prand(seed + bi * 13) * 20 * this.intensity);
+        const bh = Math.floor(1 + prand(seed + bi * 17) * 3);
+        const br = 0.4 + prand(seed + bi) * 0.6;
+        for (let py = by; py < Math.min(by + bh, matrix.h); py++)
+          for (let px = bx; px < Math.min(bx + bw, matrix.w); px++)
+            matrix.set(px, py, br, r, g, bv);
+      }
+    } else if (this.glitchType === 'chromatic') {
+      // Chromatic aberration: copy existing pixels with color channel shift
+      const shift = Math.floor(2 + this.intensity * 5);
+      for (let y = 0; y < matrix.h; y++) {
+        for (let x = 0; x < matrix.w; x++) {
+          const i = y * matrix.w + x;
+          if (matrix.br[i] > 0.2) {
+            const sx = Math.min(matrix.w - 1, x + shift);
+            matrix.set(sx, y, matrix.br[i] * 0.5, 255, 0, 0);
+            const sx2 = Math.max(0, x - shift);
+            matrix.set(sx2, y, matrix.br[i] * 0.5, 0, 100, 255);
+          }
+        }
+      }
+    }
+  }
+}
+
+class NoiseLayer {
+  constructor() {
+    this.type = 'noise';
+    this.name = 'Static Noise';
+    this.color = [255, 184, 0];
+    this.intensity = 0.12;
+    this.visible = true;
+  }
+  render(matrix, t) {
+    if (!this.visible) return;
+    const [r, g, bv] = this.color;
+    const seed = Math.floor(t * 20);
+    const count = Math.floor(matrix.w * matrix.h * this.intensity * 0.08);
+    for (let i = 0; i < count; i++) {
+      const px = Math.floor(prand(seed * 200 + i * 7) * matrix.w);
+      const py = Math.floor(prand(seed * 200 + i * 11) * matrix.h);
+      matrix.set(px, py, 0.2 + prand(seed + i) * 0.6, r, g, bv);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+//  LED RENDERER
+// ═══════════════════════════════════════════
+
+class LEDRenderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.cellSize = 7;
+    this.ledSize = 6;
+    this.ledOffset = 0;
+  }
+  resize(matrixW, matrixH, cellSize, ledSize) {
+    this.cellSize = cellSize;
+    this.ledSize = ledSize;
+    // Center the dot within the cell so gaps appear equally on all sides
+    this.ledOffset = Math.floor((cellSize - ledSize) / 2);
+    this.canvas.width = matrixW * cellSize;
+    this.canvas.height = matrixH * cellSize;
+  }
+  render(matrix) {
+    const ctx = this.ctx;
+    const cs = this.cellSize;
+    const ls = this.ledSize;
+    const off = this.ledOffset;
+    const w = matrix.w, h = matrix.h;
+
+    ctx.fillStyle = '#020202';
+    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.shadowBlur = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const br = matrix.br[i];
+        const px = x * cs + off, py = y * cs + off;
+        if (br > 0.02) {
+          const r = matrix.cr[i], g = matrix.cg[i], bv = matrix.cb[i];
+          const ri = Math.round(r * br), gi = Math.round(g * br), bi = Math.round(bv * br);
+          if (br > 0.4) {
+            ctx.shadowColor = `rgba(${r},${g},${bv},${Math.min(1, br * 0.7)})`;
+            ctx.shadowBlur = ls * 1.2;
+          } else {
+            ctx.shadowBlur = 0;
+          }
+          ctx.fillStyle = `rgb(${ri},${gi},${bi})`;
+          ctx.fillRect(px, py, ls, ls);
+          ctx.shadowBlur = 0;
+        } else {
+          // Dim dot shows where the LED sits even when off
+          ctx.fillStyle = '#080404';
+          ctx.fillRect(px, py, ls, ls);
+        }
+      }
+    }
+    // Scanlines
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    for (let sy = 0; sy < this.canvas.height; sy += 2) ctx.fillRect(0, sy, this.canvas.width, 1);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  APPLICATION STATE
+// ═══════════════════════════════════════════
+
+const STATE = {
+  layers: [],
+  selectedIdx: -1,
+  matrixW: 96, matrixH: 16,
+  fps: 15, duration: 3.0,
+  playing: true,
+  t: 0,
+  lastTs: 0,
+  activeColor: [255, 0, 51],
+  renderer: null,
+  matrix: null,
+};
+
+const COLOR_PRESETS = [
+  [255, 0, 51],    // Red Neon
+  [0, 255, 65],    // Matrix Green
+  [255, 184, 0],   // Amber
+  [0, 255, 255],   // Cyan
+  [255, 255, 255], // White
+  [200, 0, 255],   // Purple
+  [255, 100, 0],   // Orange
+  [255, 0, 160],   // Pink
+  [0, 120, 255],   // Blue
+  [255, 255, 0],   // Yellow
+  [0, 220, 150],   // Teal
+  [180, 180, 180], // Grey
+];
+
+// ═══════════════════════════════════════════
+//  UI
+// ═══════════════════════════════════════════
+
+function buildColorGrid() {
+  const grid = document.getElementById('cgrid');
+  grid.innerHTML = '';
+  COLOR_PRESETS.forEach((c, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'cswatch' + (i === 0 ? ' on' : '');
+    sw.style.background = `rgb(${c[0]},${c[1]},${c[2]})`;
+    sw.addEventListener('click', () => {
+      document.querySelectorAll('.cswatch').forEach(s => s.classList.remove('on'));
+      sw.classList.add('on');
+      STATE.activeColor = [...c];
+      applyColor();
+    });
+    grid.appendChild(sw);
+  });
+}
+
+function applyColor() {
+  if (STATE.selectedIdx >= 0 && STATE.selectedIdx < STATE.layers.length) {
+    const layer = STATE.layers[STATE.selectedIdx];
+    layer.color = [...STATE.activeColor];
+    if (layer.type === 'text') layer._tw = -1;
+    renderProps(STATE.selectedIdx);
+    renderLayerList();
+  }
+}
+
+function renderLayerList() {
+  const el = document.getElementById('layer-list');
+  el.innerHTML = '';
+  if (STATE.layers.length === 0) {
+    el.innerHTML = '<div style="padding:7px;font-size:10px;color:var(--text-dim)">Add a layer below</div>';
+    return;
+  }
+  STATE.layers.forEach((layer, idx) => {
+    const [r, g, bv] = layer.color;
+    const item = document.createElement('div');
+    item.className = 'layer-item' + (idx === STATE.selectedIdx ? ' on' : '');
+    item.innerHTML = `<div><span class="dot" style="background:rgb(${r},${g},${bv})"></span><span class="layer-name" style="margin-left:5px">${layer.name}</span><span class="layer-type">${layer.type}</span></div><div style="display:flex;gap:3px"><button class="lbtn vis-btn">${layer.visible ? '●' : '○'}</button><button class="lbtn del-btn">✕</button></div>`;
+    item.querySelector('.vis-btn').addEventListener('click', e => { e.stopPropagation(); layer.visible = !layer.visible; renderLayerList(); });
+    item.querySelector('.del-btn').addEventListener('click', e => { e.stopPropagation(); STATE.layers.splice(idx, 1); if (STATE.selectedIdx >= STATE.layers.length) STATE.selectedIdx = STATE.layers.length - 1; renderLayerList(); renderProps(STATE.selectedIdx); });
+    item.addEventListener('click', () => { STATE.selectedIdx = idx; renderLayerList(); renderProps(idx); });
+    el.appendChild(item);
+  });
+}
+
+function renderProps(idx) {
+  const body = document.getElementById('props-body');
+  if (idx < 0 || idx >= STATE.layers.length) { body.innerHTML = '<div style="font-size:10px;color:var(--text-dim)">Select a layer</div>'; return; }
+  const L = STATE.layers[idx];
+
+  const rr = (id, prop, vId, fmt, onChange) => {
+    const el = document.getElementById(id);
+    const vEl = document.getElementById(vId);
+    if (!el) return;
+    el.addEventListener('input', e => {
+      L[prop] = parseFloat(e.target.value);
+      vEl.textContent = fmt(L[prop]);
+      if (onChange) onChange();
+    });
+  };
+
+  if (L.type === 'text') {
+    const vert = L.orientation === 'vertical';
+    const offsetLabel = vert ? 'X Position' : 'Y Position';
+    const offsetMax   = vert ? Math.max(0, STATE.matrixW - L.fontSize) : Math.max(0, STATE.matrixH - 2);
+    const dirOpts = vert
+      ? `<option value="up"   ${L.direction==='up'  ?'selected':''}>↑ Up</option>
+         <option value="down" ${L.direction==='down' ?'selected':''}>↓ Down</option>`
+      : `<option value="left"  ${L.direction==='left' ?'selected':''}>← Left</option>
+         <option value="right" ${L.direction==='right'?'selected':''}>→ Right</option>`;
+    body.innerHTML = `
+      <div class="fg"><label class="lbl">Text</label><input type="text" id="p-text" value="${L.text.replace(/"/g,'&quot;')}"></div>
+      <div class="fg"><label class="lbl">Orientation</label>
+        <select id="p-orient">
+          <option value="horizontal" ${!vert?'selected':''}>↔ Horizontal</option>
+          <option value="vertical"   ${vert?'selected':''}>↕ Vertical</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Direction</label>
+        <select id="p-dir">${dirOpts}</select>
+      </div>
+      <div class="fg"><label class="lbl">Font</label>
+        <select id="p-font">
+          <option value="VT323" ${L.fontFamily==='VT323'?'selected':''}>VT323 — Terminal</option>
+          <option value="Share Tech Mono" ${L.fontFamily==='Share Tech Mono'?'selected':''}>Share Tech Mono</option>
+          <option value="monospace" ${L.fontFamily==='monospace'?'selected':''}>System Mono</option>
+          <option value="Courier New" ${L.fontFamily==='Courier New'?'selected':''}>Courier New</option>
+          <option value="serif" ${L.fontFamily==='serif'?'selected':''}>Serif (CJK fallback)</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Animation</label>
+        <select id="p-mode">
+          <option value="scroll"     ${L.mode==='scroll'?'selected':''}>Scroll</option>
+          <option value="bounce"     ${L.mode==='bounce'?'selected':''}>Bounce</option>
+          <option value="pulse"      ${L.mode==='pulse'?'selected':''}>Pulse</option>
+          <option value="static"     ${L.mode==='static'?'selected':''}>Static</option>
+          <option value="typewriter" ${L.mode==='typewriter'?'selected':''}>Typewriter</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Font Size</label><div class="rrow"><input type="range" id="p-sz" min="6" max="16" step="1" value="${L.fontSize}"><span class="rval" id="p-sz-v">${L.fontSize}px</span></div></div>
+      <div class="fg"><label class="lbl" id="p-y-lbl">${offsetLabel}</label><div class="rrow"><input type="range" id="p-y" min="0" max="${offsetMax}" value="${Math.min(L.yOffset, offsetMax)}"><span class="rval" id="p-y-v">${L.yOffset}</span></div></div>
+      <div class="fg"><label class="lbl">Speed</label><div class="rrow"><input type="range" id="p-spd" min="0.1" max="4" step="0.1" value="${L.speed}"><span class="rval" id="p-spd-v">${L.speed.toFixed(1)}×</span></div></div>
+      <div class="fg"><label class="lbl">Brightness</label><div class="rrow"><input type="range" id="p-br" min="0.1" max="1" step="0.05" value="${L.brightness}"><span class="rval" id="p-br-v">${Math.round(L.brightness*100)}%</span></div></div>
+      <div class="fg"><label class="lbl">Glitch (char sub)</label><div class="rrow"><input type="range" id="p-gl" min="0" max="1" step="0.05" value="${L.glitch}"><span class="rval" id="p-gl-v">${Math.round(L.glitch*100)}%</span></div></div>
+    `;
+    document.getElementById('p-text').addEventListener('input', e => { L.text = e.target.value; L._tw = -1; });
+    document.getElementById('p-font').addEventListener('change', e => { L.fontFamily = e.target.value; L._tw = -1; });
+    document.getElementById('p-mode').addEventListener('change', e => { L.mode = e.target.value; });
+    document.getElementById('p-dir').addEventListener('change', e => { L.direction = e.target.value; });
+    document.getElementById('p-orient').addEventListener('change', e => {
+      L.orientation = e.target.value;
+      L.direction   = L.orientation === 'vertical' ? 'up' : 'left';
+      L.yOffset     = L.orientation === 'vertical'
+        ? Math.max(0, Math.floor((STATE.matrixW - L.fontSize) / 2))
+        : 2;
+      renderProps(idx);
+    });
+    rr('p-sz','fontSize','p-sz-v',v=>`${v}px`, ()=>{L._tw=-1;});
+    rr('p-y','yOffset','p-y-v',v=>`${v}`);
+    rr('p-spd','speed','p-spd-v',v=>`${v.toFixed(1)}×`);
+    rr('p-br','brightness','p-br-v',v=>`${Math.round(v*100)}%`);
+    rr('p-gl','glitch','p-gl-v',v=>`${Math.round(v*100)}%`);
+  } else if (L.type === 'rain') {
+    const toHex = ([r, g, b]) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    const fromHex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+    body.innerHTML = `
+      <div class="fg"><label class="lbl">Charset</label>
+        <select id="p-charset">
+          <option value="kana"  ${L.charset==='kana' ?'selected':''}>Katakana</option>
+          <option value="latin" ${L.charset==='latin'?'selected':''}>Latin/Hex</option>
+          <option value="mixed" ${L.charset==='mixed'?'selected':''}>Mixed</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Head Character Color</label>
+        <input type="color" id="p-hcol" value="${toHex(L.headColor)}">
+      </div>
+      <div class="fg"><label class="lbl">Tail Color</label>
+        <input type="color" id="p-tcol" value="${toHex(L.color)}">
+      </div>
+      <div class="fg"><label class="lbl">Speed</label><div class="rrow"><input type="range" id="p-spd" min="0.2" max="4" step="0.1" value="${L.speed}"><span class="rval" id="p-spd-v">${L.speed.toFixed(1)}×</span></div></div>
+      <div class="fg"><label class="lbl">Density</label><div class="rrow"><input type="range" id="p-den" min="0.1" max="1" step="0.05" value="${L.density}"><span class="rval" id="p-den-v">${Math.round(L.density*100)}%</span></div></div>
+      <div class="fg"><label class="lbl">Trail Length</label><div class="rrow"><input type="range" id="p-tr" min="1" max="14" step="1" value="${L.trail}"><span class="rval" id="p-tr-v">${L.trail}</span></div></div>
+    `;
+    document.getElementById('p-charset').addEventListener('change', e => { L.charset = e.target.value; });
+    document.getElementById('p-hcol').addEventListener('input', e => { L.headColor = fromHex(e.target.value); });
+    document.getElementById('p-tcol').addEventListener('input', e => { L.color = fromHex(e.target.value); renderLayerList(); });
+    rr('p-spd','speed','p-spd-v',v=>`${v.toFixed(1)}×`);
+    rr('p-den','density','p-den-v',v=>`${Math.round(v*100)}%`);
+    rr('p-tr','trail','p-tr-v',v=>`${v}`);
+  } else if (L.type === 'glitch') {
+    body.innerHTML = `
+      <div class="fg"><label class="lbl">Glitch Type</label>
+        <select id="p-gt">
+          <option value="noise" ${L.glitchType==='noise'?'selected':''}>Pixel Noise</option>
+          <option value="scanline" ${L.glitchType==='scanline'?'selected':''}>Scanline Shift</option>
+          <option value="block" ${L.glitchType==='block'?'selected':''}>Block Corrupt</option>
+          <option value="chromatic" ${L.glitchType==='chromatic'?'selected':''}>Chromatic Split</option>
+        </select>
+      </div>
+      <div class="fg"><label class="lbl">Intensity</label><div class="rrow"><input type="range" id="p-int" min="0.05" max="1" step="0.05" value="${L.intensity}"><span class="rval" id="p-int-v">${Math.round(L.intensity*100)}%</span></div></div>
+    `;
+    document.getElementById('p-gt').addEventListener('change', e => { L.glitchType = e.target.value; });
+    rr('p-int','intensity','p-int-v',v=>`${Math.round(v*100)}%`);
+  } else if (L.type === 'noise') {
+    body.innerHTML = `
+      <div class="fg"><label class="lbl">Intensity</label><div class="rrow"><input type="range" id="p-int" min="0.01" max="0.5" step="0.01" value="${L.intensity}"><span class="rval" id="p-int-v">${Math.round(L.intensity*100)}%</span></div></div>
+    `;
+    rr('p-int','intensity','p-int-v',v=>`${Math.round(v*100)}%`);
+  }
+}
+
+function updateBadges() {
+  const frames = Math.round(STATE.fps * STATE.duration);
+  document.getElementById('b-fps').textContent = `${STATE.fps} FPS`;
+  document.getElementById('b-res').textContent = `${STATE.matrixW}×${STATE.matrixH}`;
+  document.getElementById('b-frames').textContent = `${frames} FRAMES`;
+  document.getElementById('b-dur').textContent = `${STATE.duration.toFixed(1)}s`;
+  document.getElementById('inf-fr').textContent = frames;
+  document.getElementById('inf-sz').textContent = `${STATE.matrixW}×${STATE.matrixH} px`;
+  document.getElementById('inf-kb').textContent = `~${Math.round(STATE.matrixW * STATE.matrixH * frames * 0.4 / 1024)} KB`;
+}
+
+function addLayer(layer) {
+  layer.color = [...STATE.activeColor];
+  STATE.layers.push(layer);
+  STATE.selectedIdx = STATE.layers.length - 1;
+  renderLayerList();
+  renderProps(STATE.selectedIdx);
+}
+
+function status(msg, dur = 3000) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  if (dur > 0) setTimeout(() => { el.textContent = 'Ready'; }, dur);
+}
+
+// ═══════════════════════════════════════════
+//  ANIMATION LOOP
+// ═══════════════════════════════════════════
+
+function renderFrame(t) {
+  STATE.matrix.clear();
+  for (const layer of STATE.layers) layer.render(STATE.matrix, t);
+  STATE.renderer.render(STATE.matrix);
+}
+
+function loop(ts) {
+  if (STATE.playing) {
+    const dt = Math.min((ts - STATE.lastTs) / 1000, 0.1);
+    STATE.t = (STATE.t + dt / STATE.duration) % 1.0;
+    document.getElementById('tdisp').textContent = STATE.t.toFixed(2);
+  }
+  STATE.lastTs = ts;
+  renderFrame(STATE.t);
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════
+//  PRESETS
+// ═══════════════════════════════════════════
+
+const NEUROMANCER_QUOTES = [
+  'WINTERMUTE',
+  'NEUROMANCER',
+  'THE SPRAWL',
+  'FLATLINE',
+  'CYBERSPACE',
+  'CONSOLE COWBOY',
+  'SCREAMING FIST',
+  'VILLA STRAYLIGHT',
+  'BURNING CHROME',
+  'TESSIER-ASHPOOL',
+  'THE SKY ABOVE THE PORT',
+  'A CONSENSUAL HALLUCINATION',
+  'THE STREET FINDS ITS OWN USES',
+  'LEAVE THE MEAT BEHIND',
+  'JACK IN',
+  'CHROME AND ICE',
+  'THE MATRIX IS NOT A PLACE',
+  'NIGHT CITY',
+  'SIMSTIM',
+  'HOSAKA',
+];
+
+function applyOrientToTextLayers() {
+  const orient = STATE.matrixW < STATE.matrixH ? 'vertical' : 'horizontal';
+  STATE.layers.forEach(L => {
+    if (L.type !== 'text') return;
+    L.orientation = orient;
+    L.direction   = orient === 'vertical' ? 'up' : 'left';
+    L.yOffset     = orient === 'vertical'
+      ? Math.max(0, Math.floor((STATE.matrixW - L.fontSize) / 2))
+      : 2;
+    L._tw = -1;
+  });
+}
+
+function loadPreset(name) {
+  STATE.layers = [];
+  STATE.selectedIdx = -1;
+  if (name === 'matrix') {
+    const rain = new RainLayer(); rain.color = [0,255,65]; rain.speed = 1.2; rain.density = 0.7; rain.trail = 5; rain.charset = 'kana';
+    STATE.layers.push(rain);
+    const noise = new NoiseLayer(); noise.color = [0,255,65]; noise.intensity = 0.05;
+    STATE.layers.push(noise);
+  } else if (name === 'scroll') {
+    const txt = new TextLayer(); txt.text = 'HELLO WORLD'; txt.color = [255,0,51]; txt.fontSize = 12; txt.fontFamily = 'VT323'; txt.speed = 1.0; txt.yOffset = 2; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+    const noise = new NoiseLayer(); noise.color = [255,0,51]; noise.intensity = 0.03;
+    STATE.layers.push(noise);
+  } else if (name === 'glitch') {
+    const g1 = new GlitchLayer(); g1.color = [255,0,51]; g1.intensity = 0.4; g1.glitchType = 'block';
+    STATE.layers.push(g1);
+    const g2 = new GlitchLayer(); g2.color = [255,200,0]; g2.intensity = 0.25; g2.glitchType = 'scanline';
+    STATE.layers.push(g2);
+    const g3 = new NoiseLayer(); g3.color = [255,0,51]; g3.intensity = 0.18;
+    STATE.layers.push(g3);
+  } else if (name === 'cyber') {
+    const rain = new RainLayer(); rain.color = [0,80,30]; rain.speed = 0.7; rain.density = 0.35; rain.trail = 3;
+    STATE.layers.push(rain);
+    const txt = new TextLayer(); txt.text = 'CYBERPUNK'; txt.color = [255,0,51]; txt.fontSize = 12; txt.fontFamily = 'VT323'; txt.speed = 0.9; txt.yOffset = 2; txt.glitch = 0.12; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+    const g = new GlitchLayer(); g.color = [255,0,51]; g.intensity = 0.15; g.glitchType = 'noise';
+    STATE.layers.push(g);
+  } else if (name === 'japan') {
+    const rain = new RainLayer(); rain.color = [0,255,65]; rain.speed = 1.5; rain.density = 0.9; rain.trail = 6; rain.charset = 'kana';
+    STATE.layers.push(rain);
+    const txt = new TextLayer(); txt.text = 'ｻｲﾊﾞｰﾊﾟﾝｸ'; txt.color = [255,0,51]; txt.fontSize = 10; txt.fontFamily = 'monospace'; txt.speed = 0.8; txt.glitch = 0.2; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+    const g = new GlitchLayer(); g.color = [255,50,0]; g.intensity = 0.2; g.glitchType = 'chromatic';
+    STATE.layers.push(g);
+  } else if (name === 'amber') {
+    const txt = new TextLayer(); txt.text = 'FLATLINE'; txt.color = [255,184,0]; txt.fontSize = 12; txt.fontFamily = 'VT323'; txt.speed = 0.9; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+    const g = new GlitchLayer(); g.color = [255,140,0]; g.intensity = 0.18; g.glitchType = 'scanline';
+    STATE.layers.push(g);
+    const n = new NoiseLayer(); n.color = [255,160,0]; n.intensity = 0.06;
+    STATE.layers.push(n);
+  } else if (name === 'ice') {
+    const rain = new RainLayer(); rain.color = [0,180,255]; rain.headColor = [200,240,255]; rain.speed = 0.8; rain.density = 0.4; rain.trail = 8; rain.charset = 'latin';
+    STATE.layers.push(rain);
+    const txt = new TextLayer(); txt.text = 'CHROME AND ICE'; txt.color = [255,255,255]; txt.fontSize = 11; txt.fontFamily = 'Share Tech Mono'; txt.speed = 0.7; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+    const g = new GlitchLayer(); g.color = [0,220,255]; g.intensity = 0.12; g.glitchType = 'chromatic';
+    STATE.layers.push(g);
+  } else if (name === 'redalert') {
+    const txt = new TextLayer(); txt.text = 'SCREAMING FIST'; txt.color = [255,0,33]; txt.fontSize = 12; txt.fontFamily = 'VT323'; txt.speed = 1.2; txt.mode = 'pulse'; txt.glitch = 0.15;
+    STATE.layers.push(txt);
+    const g1 = new GlitchLayer(); g1.color = [255,0,33]; g1.intensity = 0.35; g1.glitchType = 'block';
+    STATE.layers.push(g1);
+    const n = new NoiseLayer(); n.color = [200,0,0]; n.intensity = 0.14;
+    STATE.layers.push(n);
+  } else if (name === 'ghost') {
+    const rain = new RainLayer(); rain.color = [60,80,60]; rain.headColor = [140,160,140]; rain.speed = 0.5; rain.density = 0.25; rain.trail = 10; rain.charset = 'kana';
+    STATE.layers.push(rain);
+    const txt = new TextLayer(); txt.text = 'VILLA STRAYLIGHT'; txt.color = [160,160,160]; txt.fontSize = 10; txt.fontFamily = 'Share Tech Mono'; txt.speed = 0.4; txt.mode = 'pulse'; txt.brightness = 0.45; txt.glitch = 0.08;
+    STATE.layers.push(txt);
+    const n = new NoiseLayer(); n.color = [100,120,100]; n.intensity = 0.04;
+    STATE.layers.push(n);
+  } else if (name === 'binary') {
+    const rain = new RainLayer(); rain.color = [0,200,60]; rain.headColor = [255,255,255]; rain.speed = 1.8; rain.density = 0.95; rain.trail = 4; rain.charset = 'latin';
+    STATE.layers.push(rain);
+    const txt = new TextLayer(); txt.text = 'THE MATRIX'; txt.color = [255,255,255]; txt.fontSize = 11; txt.fontFamily = 'monospace'; txt.speed = 1.1; txt.mode = 'scroll';
+    STATE.layers.push(txt);
+  }
+  applyOrientToTextLayers();
+  renderLayerList();
+  renderProps(-1);
+}
+
+function randomPreset() {
+  const quote = NEUROMANCER_QUOTES[Math.floor(Math.random() * NEUROMANCER_QUOTES.length)];
+
+  const SCHEMES = [
+    { tail:[255,0,51],   head:[255,120,120] }, // red neon
+    { tail:[0,255,65],   head:[200,255,200] }, // matrix green
+    { tail:[255,184,0],  head:[255,240,150] }, // amber
+    { tail:[0,220,255],  head:[200,245,255] }, // cyan ice
+    { tail:[200,0,255],  head:[230,150,255] }, // purple
+    { tail:[255,100,0],  head:[255,210,120] }, // orange
+    { tail:[255,255,255],head:[255,255,255] }, // white mono
+    { tail:[0,255,200],  head:[180,255,240] }, // teal
+  ];
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const rng  = (lo, hi) => lo + Math.random() * (hi - lo);
+  const irng = (lo, hi) => Math.floor(rng(lo, hi + 1));
+
+  const scheme  = pick(SCHEMES);
+  const scheme2 = pick(SCHEMES);
+
+  STATE.layers = [];
+  STATE.selectedIdx = -1;
+
+  const roll = Math.random();
+
+  if (roll < 0.25) {
+    // Rain only + text
+    const rain = new RainLayer();
+    rain.color     = scheme.tail;
+    rain.headColor = scheme.head;
+    rain.speed     = rng(0.6, 2.2);
+    rain.density   = rng(0.3, 0.85);
+    rain.trail     = irng(3, 9);
+    rain.charset   = pick(['kana','latin','mixed']);
+    STATE.layers.push(rain);
+
+    const txt = new TextLayer();
+    txt.text       = quote;
+    txt.color      = scheme2.tail;
+    txt.fontSize   = irng(10, 13);
+    txt.fontFamily = pick(['VT323','Share Tech Mono','monospace']);
+    txt.speed      = rng(0.5, 1.8);
+    txt.mode       = pick(['scroll','bounce']);
+    txt.glitch     = rng(0, 0.25);
+    STATE.layers.push(txt);
+
+  } else if (roll < 0.5) {
+    // Text + glitch(es)
+    const txt = new TextLayer();
+    txt.text       = quote;
+    txt.color      = scheme.tail;
+    txt.fontSize   = irng(10, 13);
+    txt.fontFamily = pick(['VT323','Share Tech Mono']);
+    txt.speed      = rng(0.5, 2.0);
+    txt.mode       = pick(['scroll','bounce','pulse']);
+    txt.glitch     = rng(0.05, 0.4);
+    STATE.layers.push(txt);
+
+    const g = new GlitchLayer();
+    g.color       = scheme2.tail;
+    g.intensity   = rng(0.1, 0.45);
+    g.glitchType  = pick(['noise','scanline','block','chromatic']);
+    STATE.layers.push(g);
+
+    if (Math.random() > 0.5) {
+      const n = new NoiseLayer();
+      n.color     = scheme.tail;
+      n.intensity = rng(0.03, 0.15);
+      STATE.layers.push(n);
+    }
+
+  } else if (roll < 0.75) {
+    // Dim rain backdrop + bold text + subtle glitch
+    const rain = new RainLayer();
+    rain.color     = scheme.tail.map(v => Math.round(v * 0.3));
+    rain.headColor = scheme.head.map(v => Math.round(v * 0.6));
+    rain.speed     = rng(0.4, 1.4);
+    rain.density   = rng(0.2, 0.55);
+    rain.trail     = irng(4, 10);
+    rain.charset   = pick(['kana','mixed']);
+    STATE.layers.push(rain);
+
+    const txt = new TextLayer();
+    txt.text       = quote;
+    txt.color      = scheme.tail;
+    txt.fontSize   = irng(10, 13);
+    txt.fontFamily = pick(['VT323','Share Tech Mono']);
+    txt.speed      = rng(0.5, 1.6);
+    txt.mode       = pick(['scroll','bounce']);
+    txt.glitch     = rng(0, 0.2);
+    STATE.layers.push(txt);
+
+    const g = new GlitchLayer();
+    g.color      = scheme2.tail;
+    g.intensity  = rng(0.06, 0.22);
+    g.glitchType = pick(['noise','chromatic']);
+    STATE.layers.push(g);
+
+  } else {
+    // Full stack: rain + text + two glitch layers
+    const rain = new RainLayer();
+    rain.color     = scheme.tail.map(v => Math.round(v * 0.35));
+    rain.headColor = scheme.head;
+    rain.speed     = rng(0.8, 2.0);
+    rain.density   = rng(0.4, 0.8);
+    rain.trail     = irng(3, 7);
+    rain.charset   = pick(['kana','latin','mixed']);
+    STATE.layers.push(rain);
+
+    const txt = new TextLayer();
+    txt.text       = quote;
+    txt.color      = scheme2.tail;
+    txt.fontSize   = irng(10, 13);
+    txt.fontFamily = pick(['VT323','Share Tech Mono','monospace']);
+    txt.speed      = rng(0.6, 1.8);
+    txt.mode       = pick(['scroll','bounce','typewriter']);
+    txt.glitch     = rng(0.05, 0.3);
+    STATE.layers.push(txt);
+
+    const g1 = new GlitchLayer();
+    g1.color      = scheme.tail;
+    g1.intensity  = rng(0.08, 0.25);
+    g1.glitchType = pick(['noise','scanline','block']);
+    STATE.layers.push(g1);
+
+    if (Math.random() > 0.4) {
+      const g2 = new GlitchLayer();
+      g2.color      = scheme2.tail;
+      g2.intensity  = rng(0.05, 0.18);
+      g2.glitchType = 'chromatic';
+      STATE.layers.push(g2);
+    }
+  }
+
+  applyOrientToTextLayers();
+  renderLayerList();
+  renderProps(-1);
+  status('Random preset — ' + quote);
+}
+
+// ═══════════════════════════════════════════
+//  GIF EXPORT
+// ═══════════════════════════════════════════
+
+async function exportGIF() {
+  const btn = document.getElementById('export-btn');
+  const pw = document.getElementById('prog-wrap');
+  const pf = document.getElementById('prog-fill');
+  const pl = document.getElementById('prog-lbl');
+
+  btn.disabled = true;
+  pw.style.display = 'block';
+
+  const totalFrames = Math.round(STATE.fps * STATE.duration);
+  const delayCs = Math.round(100 / STATE.fps);
+
+  // Build palette: black + layer colors at multiple brightness levels
+  const palette = [[0,0,0]];
+  const addPalColor = (r, g, bv) => {
+    [1.0, 0.7, 0.4, 0.2].forEach(br => {
+      const c = [Math.round(r*br), Math.round(g*br), Math.round(bv*br)];
+      if (!palette.some(p => p[0]===c[0] && p[1]===c[1] && p[2]===c[2])) palette.push(c);
+    });
+  };
+  // White for bright heads
+  palette.push([255,255,255]);
+  palette.push([180,255,180]);
+  for (const L of STATE.layers) {
+    addPalColor(...L.color);
+    if (L.type === 'glitch' && L.glitchType === 'chromatic') {
+      addPalColor(255, 0, 0);
+      addPalColor(0, 100, 255);
+    }
+  }
+  // Trim to max 64 colors (6-bit palette)
+  const finalPalette = palette.slice(0, 64);
+
+  const nearestPal = (r, g, bv, br) => {
+    if (br < 0.04) return 0;
+    const tr = Math.round(r*br), tg = Math.round(g*br), tb = Math.round(bv*br);
+    let best = 0, bestD = Infinity;
+    for (let i = 1; i < finalPalette.length; i++) {
+      const d = (tr-finalPalette[i][0])**2 + (tg-finalPalette[i][1])**2 + (tb-finalPalette[i][2])**2;
+      if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+  };
+
+  const exportMatrix = new LEDMatrix(STATE.matrixW, STATE.matrixH);
+  const frames = [];
+
+  for (let fi = 0; fi < totalFrames; fi++) {
+    if (fi % 5 === 0) {
+      pl.textContent = `Encoding frame ${fi+1} / ${totalFrames}`;
+      pf.style.width = `${(fi/totalFrames)*100}%`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+    const t = fi / totalFrames;
+    exportMatrix.clear();
+    for (const L of STATE.layers) L.render(exportMatrix, t);
+    const pixels = new Uint8Array(STATE.matrixW * STATE.matrixH);
+    for (let i = 0; i < pixels.length; i++) {
+      pixels[i] = nearestPal(exportMatrix.cr[i], exportMatrix.cg[i], exportMatrix.cb[i], exportMatrix.br[i]);
+    }
+    frames.push(pixels);
+  }
+
+  pf.style.width = '100%';
+  pl.textContent = 'Building GIF...';
+  await new Promise(r => setTimeout(r, 0));
+
+  const gifData = encodeGIF(frames, STATE.matrixW, STATE.matrixH, finalPalette, delayCs);
+  const blob = new Blob([gifData], {type:'image/gif'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (document.getElementById('filename').value || 'led_animation') + '.gif';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  btn.disabled = false;
+  pw.style.display = 'none';
+  pf.style.width = '0%';
+  status(`✓ Exported ${totalFrames} frames · ${Math.round(gifData.length/1024)} KB`);
+}
+
+// ═══════════════════════════════════════════
+//  INIT & EVENT BINDING
+// ═══════════════════════════════════════════
+
+function parseLedSel() {
+  const parts = document.getElementById('led-sel').value.split(':').map(Number);
+  return { cellSize: parts[0], ledSize: parts[1] };
+}
+
+function setupRenderer() {
+  const canvas = document.getElementById('prev-canvas');
+  STATE.renderer = new LEDRenderer(canvas);
+  STATE.matrix = new LEDMatrix(STATE.matrixW, STATE.matrixH);
+  const { cellSize, ledSize } = parseLedSel();
+  STATE.renderer.resize(STATE.matrixW, STATE.matrixH, cellSize, ledSize);
+}
+
+function init() {
+  setupRenderer();
+  buildColorGrid();
+
+  // Play / pause
+  document.getElementById('playbtn').addEventListener('click', () => {
+    STATE.playing = !STATE.playing;
+    document.getElementById('playbtn').textContent = STATE.playing ? '⏸ PAUSE' : '▶ PLAY';
+  });
+  document.getElementById('restartbtn').addEventListener('click', () => { STATE.t = 0; });
+
+  // Add layers
+  document.getElementById('add-text').addEventListener('click', () => addLayer(new TextLayer()));
+  document.getElementById('add-rain').addEventListener('click', () => addLayer(new RainLayer()));
+  document.getElementById('add-glitch').addEventListener('click', () => addLayer(new GlitchLayer()));
+  document.getElementById('add-noise').addEventListener('click', () => addLayer(new NoiseLayer()));
+
+  // Resolution
+  const applyResolution = (w, h) => {
+    w = Math.max(4, Math.min(512, w));
+    h = Math.max(4, Math.min(512, h));
+    STATE.matrixW = w; STATE.matrixH = h;
+    STATE.matrix = new LEDMatrix(w, h);
+    const { cellSize: cs, ledSize: ls } = parseLedSel();
+    STATE.renderer.resize(w, h, cs, ls);
+    updateBadges();
+    applyOrientToTextLayers();
+    // Refresh props panel if a text layer is selected
+    if (STATE.selectedIdx >= 0 && STATE.layers[STATE.selectedIdx]?.type === 'text') {
+      renderProps(STATE.selectedIdx);
+    }
+  };
+
+  document.getElementById('res-sel').addEventListener('change', e => {
+    const customRow = document.getElementById('custom-res-row');
+    if (e.target.value === 'custom') {
+      customRow.style.display = '';
+      // seed inputs from current values
+      document.getElementById('res-w').value = STATE.matrixW;
+      document.getElementById('res-h').value = STATE.matrixH;
+    } else {
+      customRow.style.display = 'none';
+      const [w, h] = e.target.value.split('x').map(Number);
+      applyResolution(w, h);
+    }
+  });
+
+  const onCustomRes = () => {
+    const w = parseInt(document.getElementById('res-w').value) || STATE.matrixW;
+    const h = parseInt(document.getElementById('res-h').value) || STATE.matrixH;
+    applyResolution(w, h);
+  };
+  document.getElementById('res-w').addEventListener('change', onCustomRes);
+  document.getElementById('res-h').addEventListener('change', onCustomRes);
+
+  // LED size
+  document.getElementById('led-sel').addEventListener('change', () => {
+    const { cellSize, ledSize } = parseLedSel();
+    STATE.renderer.resize(STATE.matrixW, STATE.matrixH, cellSize, ledSize);
+  });
+
+  // FPS
+  document.getElementById('fps-sel').addEventListener('change', e => {
+    STATE.fps = parseInt(e.target.value);
+    updateBadges();
+  });
+
+  // Duration
+  document.getElementById('dur-inp').addEventListener('change', e => {
+    STATE.duration = Math.max(0.5, parseFloat(e.target.value));
+    updateBadges();
+  });
+
+  // Custom color
+  document.getElementById('custom-col').addEventListener('input', e => {
+    const hex = e.target.value;
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), bv = parseInt(hex.slice(5,7),16);
+    STATE.activeColor = [r, g, bv];
+    document.querySelectorAll('.cswatch').forEach(s => s.classList.remove('on'));
+    applyColor();
+  });
+
+  // Presets
+  document.getElementById('pre-random').addEventListener('click', randomPreset);
+  document.getElementById('pre-matrix').addEventListener('click', () => loadPreset('matrix'));
+  document.getElementById('pre-scroll').addEventListener('click', () => loadPreset('scroll'));
+  document.getElementById('pre-glitch').addEventListener('click', () => loadPreset('glitch'));
+  document.getElementById('pre-cyber').addEventListener('click', () => loadPreset('cyber'));
+  document.getElementById('pre-japan').addEventListener('click', () => loadPreset('japan'));
+  document.getElementById('pre-amber').addEventListener('click', () => loadPreset('amber'));
+  document.getElementById('pre-ice').addEventListener('click', () => loadPreset('ice'));
+  document.getElementById('pre-redalert').addEventListener('click', () => loadPreset('redalert'));
+  document.getElementById('pre-ghost').addEventListener('click', () => loadPreset('ghost'));
+  document.getElementById('pre-binary').addEventListener('click', () => loadPreset('binary'));
+
+  // Export
+  document.getElementById('export-btn').addEventListener('click', exportGIF);
+
+  document.getElementById('copy-url-btn').addEventListener('click', copyShareURL);
+
+  updateBadges();
+  if (!restoreFromHash()) loadPreset('matrix');
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════
+//  URL STATE — share via hash
+// ═══════════════════════════════════════════
+
+function _b64enc(str) {
+  // Unicode-safe base64 encode
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin);
+}
+
+function _b64dec(b64) {
+  // Unicode-safe base64 decode
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+function serializeState() {
+  return {
+    v: 1,
+    w: STATE.matrixW, h: STATE.matrixH,
+    fps: STATE.fps, dur: STATE.duration,
+    led: document.getElementById('led-sel').value,
+    layers: STATE.layers.map(L => {
+      const base = { type: L.type, name: L.name, color: L.color, visible: L.visible };
+      if (L.type === 'text')   return { ...base, text: L.text, fontSize: L.fontSize, fontFamily: L.fontFamily, mode: L.mode, orientation: L.orientation, direction: L.direction, speed: L.speed, yOffset: L.yOffset, brightness: L.brightness, glitch: L.glitch };
+      if (L.type === 'rain')   return { ...base, headColor: L.headColor, speed: L.speed, density: L.density, trail: L.trail, charset: L.charset };
+      if (L.type === 'glitch') return { ...base, intensity: L.intensity, glitchType: L.glitchType };
+      if (L.type === 'noise')  return { ...base, intensity: L.intensity };
+      return base;
+    }),
+  };
+}
+
+function buildShareURL() {
+  return location.href.split('#')[0] + '#' + _b64enc(JSON.stringify(serializeState()));
+}
+
+function copyShareURL() {
+  const url = buildShareURL();
+  history.replaceState(null, '', url);
+  navigator.clipboard.writeText(url).then(() => {
+    const el = document.getElementById('share-ok');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 2500);
+  }).catch(() => {
+    // Fallback: select the URL from a temp input
+    const inp = document.createElement('input');
+    inp.value = url;
+    document.body.appendChild(inp);
+    inp.select();
+    document.execCommand('copy');
+    document.body.removeChild(inp);
+    const el = document.getElementById('share-ok');
+    el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 2500);
+  });
+}
+
+function restoreFromHash() {
+  const hash = location.hash.slice(1);
+  if (!hash) return false;
+  let data;
+  try { data = JSON.parse(_b64dec(hash)); } catch { return false; }
+  if (!data || !Array.isArray(data.layers)) return false;
+
+  // Resolution
+  if (data.w && data.h) {
+    STATE.matrixW = data.w; STATE.matrixH = data.h;
+    STATE.matrix = new LEDMatrix(data.w, data.h);
+    const resVal = `${data.w}x${data.h}`;
+    const resSel = document.getElementById('res-sel');
+    const match = [...resSel.options].find(o => o.value === resVal);
+    if (match) {
+      resSel.value = resVal;
+    } else {
+      resSel.value = 'custom';
+      document.getElementById('custom-res-row').style.display = '';
+      document.getElementById('res-w').value = data.w;
+      document.getElementById('res-h').value = data.h;
+    }
+  }
+
+  // LED cell size
+  if (data.led) {
+    const ledSel = document.getElementById('led-sel');
+    if ([...ledSel.options].some(o => o.value === data.led)) ledSel.value = data.led;
+    const { cellSize, ledSize } = parseLedSel();
+    STATE.renderer.resize(STATE.matrixW, STATE.matrixH, cellSize, ledSize);
+  }
+
+  // FPS / duration
+  if (data.fps) { STATE.fps = data.fps; document.getElementById('fps-sel').value = data.fps; }
+  if (data.dur) { STATE.duration = data.dur; document.getElementById('dur-inp').value = data.dur; }
+
+  // Layers
+  STATE.layers = data.layers.map(s => {
+    let L;
+    if      (s.type === 'text')   L = new TextLayer();
+    else if (s.type === 'rain')   L = new RainLayer();
+    else if (s.type === 'glitch') L = new GlitchLayer();
+    else if (s.type === 'noise')  L = new NoiseLayer();
+    else return null;
+    Object.assign(L, s);
+    if (L._tw !== undefined) L._tw = -1;
+    return L;
+  }).filter(Boolean);
+
+  STATE.selectedIdx = -1;
+  updateBadges();
+  renderLayerList();
+  renderProps(-1);
+  status('Preset loaded from URL');
+  return true;
+}
+
+document.fonts.ready.then(init);
+</script>
+</body>
+</html>
