@@ -1183,14 +1183,14 @@ function loadPreset(name) {
     STATE.layers.push(n);
   } else if (name === 'predator') {
     const txt = new TextLayer();
-    txt.color = [255,80,0]; txt.fontSize = 13; txt.fontFamily = 'Predator';
-    txt.mode = 'sequence'; txt.yOffset = 1; txt.glitch = 0.04;
-    txt.sequence = ['010','009','008','007','006','005','004','003','002','001','000'];
-    txt.stepDuration = 1.0;
+    txt.color = [255,0,0]; txt.fontSize = 16; txt.fontFamily = 'Predator';
+    txt.mode = 'sequence'; txt.yOffset = 0; txt.glitch = 0; txt.brightness = 1.0;
+    txt.sequence = Array.from({length: 20}, () => String(Math.floor(Math.random() * 10000)).padStart(4, '0'));
+    txt.stepDuration = 0.1;
     STATE.layers.push(txt);
-    const g = new GlitchLayer(); g.color = [255,40,0]; g.intensity = 0.14; g.glitchType = 'scanline';
+    const g = new GlitchLayer(); g.color = [255,0,0]; g.intensity = 0.14; g.glitchType = 'scanline';
     STATE.layers.push(g);
-    const n = new NoiseLayer(); n.color = [200,60,0]; n.intensity = 0.05;
+    const n = new NoiseLayer(); n.color = [255,0,0]; n.intensity = 0.05;
     STATE.layers.push(n);
   }
   applyOrientToTextLayers();
