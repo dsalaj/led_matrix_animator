@@ -239,7 +239,7 @@ input[type=checkbox]:checked::after{content:'✓';position:absolute;top:-2px;lef
       <button class="btn" id="pre-ice">❄ Ice</button>
       <button class="btn" id="pre-redalert">⚠ Alert</button>
       <button class="btn" id="pre-ghost">◌ Ghost</button>
-      <button class="btn" id="pre-binary">01 Binary</button>
+      <button class="btn" id="pre-predator">☢ Predator</button>
     </div>
   </div>
 
@@ -472,7 +472,9 @@ class TextLayer {
     this.text = 'CYBERPUNK';
     this.fontSize = 11;
     this.fontFamily = 'VT323';
-    this.mode = 'scroll'; // scroll, bounce, pulse, static, typewriter
+    this.mode = 'scroll'; // scroll, bounce, pulse, static, typewriter, sequence
+    this.sequence = ['3', '2', '1'];
+    this.stepDuration = 1.0;
     this.orientation = 'horizontal'; // horizontal | vertical
     this.direction = 'left'; // horizontal: left|right  vertical: up|down
     this.speed = 1.0;
@@ -538,6 +540,20 @@ class TextLayer {
           x = 0;
         }
         drawTextToMatrix(matrix, sub, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
+      } else if (this.mode === 'sequence') {
+        const seq = this.sequence && this.sequence.length ? this.sequence : ['?'];
+        const step = Math.floor(t / Math.max(0.05, this.stepDuration)) % seq.length;
+        let seqTxt = seq[step];
+        if (this.glitch > 0) {
+          const gseed = Math.floor(t * 60);
+          seqTxt = seqTxt.split('').map((c, ci) => {
+            if (prand(gseed * 31 + ci * 7) < this.glitch * 0.4) return GLITCH_K[Math.floor(prand(gseed * 17 + ci * 13) * GLITCH_K.length)];
+            return c;
+          }).join('');
+        }
+        const seqW = measureTextWidth(seqTxt, this.fontSize, this.fontFamily);
+        x = Math.max(0, Math.round((matrix.w - seqW) / 2));
+        drawTextToMatrix(matrix, seqTxt, x, this.yOffset, this.fontSize, this.fontFamily, r, g, bv, this.brightness);
       }
     } else {
       // ── VERTICAL: text is rotated 90° CW, scroll axis = Y, perpendicular offset = X (yOffset)
@@ -576,6 +592,20 @@ class TextLayer {
           yPos = 0;
         }
         drawTextToMatrix(matrix, sub, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
+      } else if (this.mode === 'sequence') {
+        const seq = this.sequence && this.sequence.length ? this.sequence : ['?'];
+        const step = Math.floor(t / Math.max(0.05, this.stepDuration)) % seq.length;
+        let seqTxt = seq[step];
+        if (this.glitch > 0) {
+          const gseed = Math.floor(t * 60);
+          seqTxt = seqTxt.split('').map((c, ci) => {
+            if (prand(gseed * 31 + ci * 7) < this.glitch * 0.4) return GLITCH_K[Math.floor(prand(gseed * 17 + ci * 13) * GLITCH_K.length)];
+            return c;
+          }).join('');
+        }
+        const seqW = measureTextWidth(seqTxt, this.fontSize, this.fontFamily);
+        yPos = Math.max(0, Math.round((matrix.h - seqW) / 2));
+        drawTextToMatrix(matrix, seqTxt, xPos, yPos, this.fontSize, this.fontFamily, r, g, bv, this.brightness, true);
       }
     }
   }
@@ -885,6 +915,7 @@ function renderProps(idx) {
 
   if (L.type === 'text') {
     const vert = L.orientation === 'vertical';
+    const isSeq = L.mode === 'sequence';
     const offsetLabel = vert ? 'X Position' : 'Y Position';
     const offsetMax   = vert ? Math.max(0, STATE.matrixW - L.fontSize) : Math.max(0, STATE.matrixH - 2);
     const dirOpts = vert
@@ -892,15 +923,18 @@ function renderProps(idx) {
          <option value="down" ${L.direction==='down' ?'selected':''}>↓ Down</option>`
       : `<option value="left"  ${L.direction==='left' ?'selected':''}>← Left</option>
          <option value="right" ${L.direction==='right'?'selected':''}>→ Right</option>`;
+    const seqVal = (L.sequence || []).join('\n');
+    const stepDur = (L.stepDuration || 1.0);
     body.innerHTML = `
-      <div class="fg"><label class="lbl">Text</label><input type="text" id="p-text" value="${L.text.replace(/"/g,'&quot;')}"></div>
+      <div class="fg" id="p-text-row" ${isSeq?'style="display:none"':''}><label class="lbl">Text</label><input type="text" id="p-text" value="${L.text.replace(/"/g,'&quot;')}"></div>
+      <div class="fg" id="p-seq-row" ${!isSeq?'style="display:none"':''}><label class="lbl">Sequence (one per line)</label><textarea id="p-seq" rows="6" style="resize:vertical;font-family:var(--font-mono);font-size:12px">${seqVal}</textarea></div>
       <div class="fg"><label class="lbl">Orientation</label>
         <select id="p-orient">
           <option value="horizontal" ${!vert?'selected':''}>↔ Horizontal</option>
           <option value="vertical"   ${vert?'selected':''}>↕ Vertical</option>
         </select>
       </div>
-      <div class="fg"><label class="lbl">Direction</label>
+      <div class="fg" id="p-dir-row" ${isSeq?'style="display:none"':''}><label class="lbl">Direction</label>
         <select id="p-dir">${dirOpts}</select>
       </div>
       <div class="fg"><label class="lbl">Font</label>
@@ -920,18 +954,22 @@ function renderProps(idx) {
           <option value="pulse"      ${L.mode==='pulse'?'selected':''}>Pulse</option>
           <option value="static"     ${L.mode==='static'?'selected':''}>Static</option>
           <option value="typewriter" ${L.mode==='typewriter'?'selected':''}>Typewriter</option>
+          <option value="sequence"   ${L.mode==='sequence'?'selected':''}>Sequence</option>
         </select>
       </div>
+      <div class="fg" id="p-step-row" ${!isSeq?'style="display:none"':''}><label class="lbl">Step Duration</label><div class="rrow"><input type="range" id="p-step" min="0.1" max="5" step="0.1" value="${stepDur}"><span class="rval" id="p-step-v">${stepDur.toFixed(1)}s</span></div></div>
       <div class="fg"><label class="lbl">Font Size</label><div class="rrow"><input type="range" id="p-sz" min="6" max="16" step="1" value="${L.fontSize}"><span class="rval" id="p-sz-v">${L.fontSize}px</span></div></div>
       <div class="fg"><label class="lbl" id="p-y-lbl">${offsetLabel}</label><div class="rrow"><input type="range" id="p-y" min="0" max="${offsetMax}" value="${Math.min(L.yOffset, offsetMax)}"><span class="rval" id="p-y-v">${L.yOffset}</span></div></div>
-      <div class="fg"><label class="lbl">Speed</label><div class="rrow"><input type="range" id="p-spd" min="0.1" max="4" step="0.1" value="${L.speed}"><span class="rval" id="p-spd-v">${L.speed.toFixed(1)}×</span></div></div>
+      <div class="fg" id="p-spd-row" ${isSeq?'style="display:none"':''}><label class="lbl">Speed</label><div class="rrow"><input type="range" id="p-spd" min="0.1" max="4" step="0.1" value="${L.speed}"><span class="rval" id="p-spd-v">${L.speed.toFixed(1)}×</span></div></div>
       <div class="fg"><label class="lbl">Brightness</label><div class="rrow"><input type="range" id="p-br" min="0.1" max="1" step="0.05" value="${L.brightness}"><span class="rval" id="p-br-v">${Math.round(L.brightness*100)}%</span></div></div>
       <div class="fg"><label class="lbl">Glitch (char sub)</label><div class="rrow"><input type="range" id="p-gl" min="0" max="1" step="0.05" value="${L.glitch}"><span class="rval" id="p-gl-v">${Math.round(L.glitch*100)}%</span></div></div>
     `;
     document.getElementById('p-text').addEventListener('input', e => { L.text = e.target.value; L._tw = -1; });
+    document.getElementById('p-seq').addEventListener('input', e => { L.sequence = e.target.value.split('\n').map(s => s.trim()).filter(Boolean); });
     document.getElementById('p-font').addEventListener('change', e => { L.fontFamily = e.target.value; L._tw = -1; });
-    document.getElementById('p-mode').addEventListener('change', e => { L.mode = e.target.value; });
-    document.getElementById('p-dir').addEventListener('change', e => { L.direction = e.target.value; });
+    document.getElementById('p-mode').addEventListener('change', e => { L.mode = e.target.value; renderProps(idx); });
+    const dirEl = document.getElementById('p-dir');
+    if (dirEl) dirEl.addEventListener('change', e => { L.direction = e.target.value; });
     document.getElementById('p-orient').addEventListener('change', e => {
       L.orientation = e.target.value;
       L.direction   = L.orientation === 'vertical' ? 'up' : 'left';
@@ -942,7 +980,8 @@ function renderProps(idx) {
     });
     rr('p-sz','fontSize','p-sz-v',v=>`${v}px`, ()=>{L._tw=-1;});
     rr('p-y','yOffset','p-y-v',v=>`${v}`);
-    rr('p-spd','speed','p-spd-v',v=>`${v.toFixed(1)}×`);
+    if (!isSeq) rr('p-spd','speed','p-spd-v',v=>`${v.toFixed(1)}×`);
+    if (isSeq)  rr('p-step','stepDuration','p-step-v',v=>`${v.toFixed(1)}s`);
     rr('p-br','brightness','p-br-v',v=>`${Math.round(v*100)}%`);
     rr('p-gl','glitch','p-gl-v',v=>`${Math.round(v*100)}%`);
   } else if (L.type === 'rain') {
@@ -1142,11 +1181,17 @@ function loadPreset(name) {
     STATE.layers.push(txt);
     const n = new NoiseLayer(); n.color = [100,120,100]; n.intensity = 0.04;
     STATE.layers.push(n);
-  } else if (name === 'binary') {
-    const rain = new RainLayer(); rain.color = [0,200,60]; rain.headColor = [255,255,255]; rain.speed = 1.8; rain.density = 0.95; rain.trail = 4; rain.charset = 'latin';
-    STATE.layers.push(rain);
-    const txt = new TextLayer(); txt.text = 'THE MATRIX'; txt.color = [255,255,255]; txt.fontSize = 11; txt.fontFamily = 'monospace'; txt.speed = 1.1; txt.mode = 'scroll';
+  } else if (name === 'predator') {
+    const txt = new TextLayer();
+    txt.color = [255,80,0]; txt.fontSize = 13; txt.fontFamily = 'Predator';
+    txt.mode = 'sequence'; txt.yOffset = 1; txt.glitch = 0.04;
+    txt.sequence = ['010','009','008','007','006','005','004','003','002','001','000'];
+    txt.stepDuration = 1.0;
     STATE.layers.push(txt);
+    const g = new GlitchLayer(); g.color = [255,40,0]; g.intensity = 0.14; g.glitchType = 'scanline';
+    STATE.layers.push(g);
+    const n = new NoiseLayer(); n.color = [200,60,0]; n.intensity = 0.05;
+    STATE.layers.push(n);
   }
   applyOrientToTextLayers();
   renderLayerList();
@@ -1489,7 +1534,7 @@ function init() {
   document.getElementById('pre-ice').addEventListener('click', () => loadPreset('ice'));
   document.getElementById('pre-redalert').addEventListener('click', () => loadPreset('redalert'));
   document.getElementById('pre-ghost').addEventListener('click', () => loadPreset('ghost'));
-  document.getElementById('pre-binary').addEventListener('click', () => loadPreset('binary'));
+  document.getElementById('pre-predator').addEventListener('click', () => loadPreset('predator'));
 
   // Export
   document.getElementById('export-btn').addEventListener('click', exportGIF);
@@ -1529,7 +1574,7 @@ function serializeState() {
     led: document.getElementById('led-sel').value,
     layers: STATE.layers.map(L => {
       const base = { type: L.type, name: L.name, color: L.color, visible: L.visible };
-      if (L.type === 'text')   return { ...base, text: L.text, fontSize: L.fontSize, fontFamily: L.fontFamily, mode: L.mode, orientation: L.orientation, direction: L.direction, speed: L.speed, yOffset: L.yOffset, brightness: L.brightness, glitch: L.glitch };
+      if (L.type === 'text')   return { ...base, text: L.text, fontSize: L.fontSize, fontFamily: L.fontFamily, mode: L.mode, orientation: L.orientation, direction: L.direction, speed: L.speed, yOffset: L.yOffset, brightness: L.brightness, glitch: L.glitch, sequence: L.sequence, stepDuration: L.stepDuration };
       if (L.type === 'rain')   return { ...base, headColor: L.headColor, speed: L.speed, density: L.density, trail: L.trail, charset: L.charset };
       if (L.type === 'glitch') return { ...base, intensity: L.intensity, glitchType: L.glitchType };
       if (L.type === 'noise')  return { ...base, intensity: L.intensity };
