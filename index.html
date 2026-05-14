@@ -6,6 +6,7 @@
 <title>LED Matrix Animator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>@font-face{font-family:'Predator';src:url('fonts/Predator-nLgM.ttf') format('truetype');font-display:swap}</style>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -905,6 +906,7 @@ function renderProps(idx) {
       <div class="fg"><label class="lbl">Font</label>
         <select id="p-font">
           <option value="VT323" ${L.fontFamily==='VT323'?'selected':''}>VT323 — Terminal</option>
+          <option value="Predator" ${L.fontFamily==='Predator'?'selected':''}>Predator</option>
           <option value="Share Tech Mono" ${L.fontFamily==='Share Tech Mono'?'selected':''}>Share Tech Mono</option>
           <option value="monospace" ${L.fontFamily==='monospace'?'selected':''}>System Mono</option>
           <option value="Courier New" ${L.fontFamily==='Courier New'?'selected':''}>Courier New</option>
@@ -1191,7 +1193,7 @@ function randomPreset() {
     txt.text       = quote;
     txt.color      = scheme2.tail;
     txt.fontSize   = irng(10, 13);
-    txt.fontFamily = pick(['VT323','Share Tech Mono','monospace']);
+    txt.fontFamily = pick(['VT323','Predator','Share Tech Mono','monospace']);
     txt.speed      = rng(0.5, 1.8);
     txt.mode       = pick(['scroll','bounce']);
     txt.glitch     = rng(0, 0.25);
@@ -1203,7 +1205,7 @@ function randomPreset() {
     txt.text       = quote;
     txt.color      = scheme.tail;
     txt.fontSize   = irng(10, 13);
-    txt.fontFamily = pick(['VT323','Share Tech Mono']);
+    txt.fontFamily = pick(['VT323','Predator','Share Tech Mono']);
     txt.speed      = rng(0.5, 2.0);
     txt.mode       = pick(['scroll','bounce','pulse']);
     txt.glitch     = rng(0.05, 0.4);
@@ -1237,7 +1239,7 @@ function randomPreset() {
     txt.text       = quote;
     txt.color      = scheme.tail;
     txt.fontSize   = irng(10, 13);
-    txt.fontFamily = pick(['VT323','Share Tech Mono']);
+    txt.fontFamily = pick(['VT323','Predator','Share Tech Mono']);
     txt.speed      = rng(0.5, 1.6);
     txt.mode       = pick(['scroll','bounce']);
     txt.glitch     = rng(0, 0.2);
@@ -1264,7 +1266,7 @@ function randomPreset() {
     txt.text       = quote;
     txt.color      = scheme2.tail;
     txt.fontSize   = irng(10, 13);
-    txt.fontFamily = pick(['VT323','Share Tech Mono','monospace']);
+    txt.fontFamily = pick(['VT323','Predator','Share Tech Mono','monospace']);
     txt.speed      = rng(0.6, 1.8);
     txt.mode       = pick(['scroll','bounce','typewriter']);
     txt.glitch     = rng(0.05, 0.3);
